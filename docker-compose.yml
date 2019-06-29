@@ -1,0 +1,30 @@
+version: '3'
+
+services:
+
+  db:
+    image: nexus166/mongodb
+    container_name: mongodb
+    environment:
+      - MONGO_DATA_DIR=/home/mongodb
+    volumes:
+      - /rocketchat:/home/mongodb
+    #ports:
+    #  - 27017:27017
+
+  rocketchat:
+    image: nexus166/rocketchat
+    build: ./rocketchat
+    container_name: rocketchat
+    environment:
+      - NODE_ENV=production
+      - MONGO_URL=mongodb://db:27017/rocketchat?replicaSet=rs01
+      - MONGO_OPLOG_URL=mongodb://db:27017/local?replicaSet=rs01
+      #- ROOT_URL='http://chat.localhost:3000/'
+      #- MAIL_URL='smtp://user:password@mailhost:port/'
+    ports:
+      - 3000:3000
+    links:
+      - db:db
+    depends_on:
+      - db
