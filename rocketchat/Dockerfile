@@ -1,56 +1,40 @@
-FROM    debian:buster-slim
-
+FROM    ubuntu:bionic
+USER 	root
 SHELL   ["/bin/bash", "-xeo", "pipefail", "-c"]
 
 RUN     export DEBIAN_FRONTEND=noninteractive; \
         apt-get update; \
         apt-get dist-upgrade -y; \
-        apt-get install -y --no-install-recommends \
-                build-essential ca-certificates curl git jq make python-minimal python-dev python-pip procps; \
-        rm -fr /tmp/* /root/.cache /var/lib/apt/*
-
-RUN     useradd --create-home --system --shell "/sbin/nologin" rc
-
-ARG     NODE_VERSION="v8.11.4"
-ARG     OS="linux"
-ARG     OS_ARCH="x64"
-ENV     NODE_URL="https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-${OS}-${OS_ARCH}.tar.gz"
-RUN     mkdir -vp /usr/local/nodejs; \
-        curl -fsSLo- "${NODE_URL}" | tar zxf - -C /usr/local/nodejs --strip-components 1; \
-        for _bin in $(find /usr/local/nodejs/bin); do ln -sv "$_bin" "/usr/local/bin/$(basename $_bin)"; done; \
-        node --version; \
-	npm install -g node-pre-gyp yarn request; \
-	for _bin in $(find /usr/local/nodejs/bin); do ln -sv "$_bin" "/usr/local/bin/$(basename $_bin)" || true; \
-	done ; \
-	npm cache clear --force
-
-RUN     curl https://install.meteor.com/ | bash -xv
+        apt-get install -y build-essential ca-certificates curl g++ git jq libkrb5-dev make python-minimal python-dev python-pip procps; \
+        rm -fr /tmp/* /root/.cache /var/lib/apt/*; \
+	useradd --create-home --system --shell "/sbin/nologin" rc
 
 ARG     ROCKETCHAT_VERSION
 RUN     mkdir -vp /usr/src/rocket.chat; \
         if [[ ! -z "${ROCKETCHAT_VERSION}" ]]; then \
                 curl -fsSLo- "https://api.github.com/repos/RocketChat/Rocket.Chat/tarball/${ROCKETCHAT_VERSION}" | tar zxf - -C /usr/src/rocket.chat --strip-components 1; \
         else \
-                _tarball_url="$(curl -sL https://api.github.com/repos/RocketChat/Rocket.Chat/releases/latest | jq -r '.tarball_url')"; \
-                curl -fsSLo- "${_tarball_url}" | tar zxf - -C /usr/src/rocket.chat --strip-components 1; \
+                curl -fsSLo- "$(curl -sL https://api.github.com/repos/RocketChat/Rocket.Chat/releases/latest | jq -r '.tarball_url')" | \
+			tar zxf - -C /usr/src/rocket.chat --strip-components 1; \
         fi; \
-        chown -R rc:rc /usr/src/rocket.chat
+        chown -R rc:rc /usr/src/rocket.chat; \
+	curl https://install.meteor.com/ | bash -x; \
+	printf '#!/bin/sh\nmeteor node ${@}\n' > /usr/bin/fakenode; \
+	chmod +x /usr/bin/fakenode; \
+	ln -vs /usr/bin/fakenode /usr/local/bin/node; \
+	ln -vs /usr/bin/fakenode /usr/local/bin/nodejs
 
 USER    rc
 WORKDIR /usr/src/rocket.chat
 
-RUN	meteor npm install
-
-RUN	meteor npm run postinstall
-
-RUN	_modules=""; \
+RUN	meteor npm install; \
+	meteor npm run postinstall; \
+	_modules=""; \
 	for _node_module in $(jq -r '.devDependencies | keys[]' package.json); do _modules+=" ${_node_module}@$(jq -r ".devDependencies.\"${_node_module}\"" package.json | tr -d '^')"; done; \
-	meteor npm install --save ${_modules}
+	meteor npm install --save ${_modules}; \
+	meteor build --server-only --directory ~/bundle
 
-RUN	meteor build --server-only --directory ~/bundle
-
-
-FROM	debian:buster-slim
+FROM	ubuntu:bionic
 
 ENV	NODE_ENV="production"
 
@@ -67,16 +51,16 @@ RUN	useradd --no-create-home --home /tmp --system --shell "/sbin/nologin" rocket
 	mkdir -vp /app/uploads; \
 	chown -vR rocketchat:rocketchat /app
 
-ARG     NODE_VERSION="v8.11.4"
+ARG     NODE_VERSION="v12.14.0"
 ARG     OS="linux"
 ARG     OS_ARCH="x64"
 ENV     NODE_URL="https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-${OS}-${OS_ARCH}.tar.gz"
 RUN	mkdir -vp /usr/local/nodejs; \
 	curl -fsSLo- "${NODE_URL}" | tar zxf - -C /usr/local/nodejs --strip-components 1; \
-	for _bin in $(find /usr/local/nodejs/bin); do ln -sv "$_bin" "/usr/local/bin/$(basename $_bin)"; done; \
-	node --version; \
-	for _bin in $(find /usr/local/nodejs/bin); do ln -sv "$_bin" "/usr/local/bin/$(basename $_bin)" || true; \
-	done ; \
+	ln -vs /usr/local/nodejs/bin/node /usr/local/nodejs/bin/nodejs
+
+ENV	PATH="${PATH}:/usr/local/nodejs/bin"
+RUN	node --version; \
 	npm cache clear --force
 
 COPY	--from=0 --chown=rocketchat:rocketchat	/home/rc/bundle		/app/
@@ -105,4 +89,4 @@ EXPOSE	3000
 VOLUME	/app/uploads
 
 ENTRYPOINT ["/bin/bash", "-c"]
-CMD	["sleep 10; /usr/local/bin/node main.js"]
+CMD	["sleep 10; /usr/local/nodejs/bin/node main.js"]
