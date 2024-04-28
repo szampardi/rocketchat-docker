@@ -4,7 +4,7 @@ ARG	DOCKER_IMAGE=docker.io/nexus166/rocketchat
 FROM	${DOCKER_IMAGE}:${ROCKETCHAT_VERSION}-bundle as bundle
 FROM	node:${NODEJS_VERSION}-bullseye-slim
 COPY	--from=bundle /etc/passwd /etc/group /etc/
-COPY	--from=bundle /app/bundle     /app
+COPY	--from=bundle /app/bundle     /app/bundle
 
 ENV	NODE_ENV="production"
 SHELL	["/bin/bash", "-xeo", "pipefail", "-c"]
