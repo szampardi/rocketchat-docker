@@ -1,4 +1,4 @@
-ARG	NODEJS_VERSION
+ARG	NODEJS_VERSION=fermium
 FROM    node:${NODEJS_VERSION}-bullseye-slim AS bundle
 USER	root
 SHELL   ["/bin/bash", "-xeo", "pipefail", "-c"]
@@ -23,7 +23,6 @@ RUN	if [[ -n "${ROCKETCHAT_VERSION}" ]]; then \
 		git clone --single-branch --branch="$(curl -sL https://api.github.com/repos/RocketChat/Rocket.Chat/releases/latest | jq -r '.tag_name')" --depth=1 "${ROCKETCHAT_VCS}"  /usr/src/rocket.chat; \
 	fi
 
-ARG	BUNDLE_TOPDIR=/tmp/dist
 #YARN_CHECKSUM_BEHAVIOR=ignore
 USER	rocketchat
 RUN	curl "https://install.meteor.com/?release=$(cut -d '@' -f2 <apps/meteor/.meteor/release)" | bash -x; \
@@ -33,12 +32,8 @@ RUN	curl "https://install.meteor.com/?release=$(cut -d '@' -f2 <apps/meteor/.met
 	yarn turbo run translation-check; \
 	yarn turbo run typecheck; \
 	yarn build:ci
-RUN	rm -fr ${BUNDLE_TOPDIR}/bundle/programs/server/npm/node_modules/*/vendor /usr/src/rocket.chat/*
 
-FROM    node:${NODEJS_VERSION}-bullseye-slim
-ENV     NODE_ENV="production"
-COPY    --from=bundle /etc/passwd /etc/group /etc/
-ARG	BUNDLE_TOPDIR=/tmp/dist
-COPY    --from=bundle --chown=rocketchat:rocketchat	${BUNDLE_TOPDIR}	/app
-USER	rocketchat
-WORKDIR /app/bundle
+RUN	ls /tmp/dist
+FROM	scratch
+COPY	--from=bundle /etc/passwd /etc/group	/etc/
+COPY	--from=bundle /tmp/dist /app/
