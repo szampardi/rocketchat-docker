@@ -2,7 +2,7 @@ ARG	NODEJS_VERSION
 ARG	ROCKETCHAT_VERSION
 ARG	DOCKER_IMAGE=docker.io/nexus166/rocketchat
 FROM	${DOCKER_IMAGE}:${ROCKETCHAT_VERSION}-bundle as bundle
-FROM	node:${NODEJS_VERSION}-bullseye
+FROM	node:${NODEJS_VERSION}-bookworm-slim
 COPY	--from=bundle /etc/passwd /etc/group /etc/
 COPY	--from=bundle --chown=rocketchat:rocketchat /app/bundle     /app/bundle
 
