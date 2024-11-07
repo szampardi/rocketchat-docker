@@ -4,39 +4,52 @@ ARG	DOCKER_IMAGE=docker.io/nexus166/rocketchat
 FROM	${DOCKER_IMAGE}:${ROCKETCHAT_VERSION}-bundle as bundle
 FROM	node:${NODEJS_VERSION}-bookworm-slim
 COPY	--from=bundle /etc/passwd /etc/group /etc/
-COPY	--from=bundle --chown=rocketchat:rocketchat /app/bundle     /app/bundle
+COPY	--from=bundle /app/bundle     /app/bundle
 
 ENV	NODE_ENV="production"
 SHELL	["/bin/bash", "-xeo", "pipefail", "-c"]
 RUN	export DEBIAN_FRONTEND=noninteractive; \
 	apt-get update; \
 	apt-get dist-upgrade -y; \
-	apt-get install -y --no-install-recommends ca-certificates; \
+	apt-get install -y --no-install-recommends build-essential ca-certificates curl make python3-dev unzip; \
 	rm -fr /tmp/* /root/.cache /var/lib/apt/*; \
 	node --version; \
 	mkdir -vp /home/rocketchat /app/{.npm,uploads}; \
-	chown -R rocketchat:rocketchat /home/rocketchat
+	chown -R rocketchat:rocketchat /home/rocketchat /app/bundle
+
+ARG     DENO_VERSION=2.0.5
+RUN     case $(dpkg --print-architecture) in \
+                amd64) _deno_dl="https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-x86_64-unknown-linux-gnu.zip" ;; \
+                *) _deno_dl="https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-aarch64-unknown-linux-gnu.zip" ;; \
+        esac; \
+        cd $(mktemp -d); \
+        curl -fsSLo deno.zip "${_deno_dl}"; \
+        unzip deno.zip; \
+        mv deno /usr/local/bin/deno; \
+        rm -rfv $(pwd)
 
 WORKDIR	/app/bundle
-USER	rocketchat
+#USER	rocketchat
 RUN	cd programs/server; \
-	npm install --production --omit=dev --unsafe-perm; \
+	npm install --omit=dev --unsafe-perm; \
 	rm -rf npm/node_modules/sharp; \
-	npm install sharp@0.32.6; \
+	npm install --omit=dev --unsafe-perm sharp@0.32.6; \
 	mv node_modules/sharp npm/node_modules/sharp; \
 	cd /app/bundle/programs/server/npm/node_modules/@vector-im/matrix-bot-sdk; \
 	npm install; \
+	cd /app/bundle/programs/server; \
 	rm -rf npm/node_modules/isolated-vm; \
 	npm install isolated-vm@4.6.0; \
-	mv node_modules/isolated-vm npm/node_modules/isolated-vm; \
+	mv node_modules/isolated-vm* npm/node_modules/; \
 	cd npm; \
 	npm rebuild bcrypt --build-from-source; \
 	npm cache clear --force
 
-USER	root
+#USER	root
 RUN	apt-get remove --purge --autoremove -y build-essential gcc g++ make python3; \
 	apt-get clean; \
-	apt-get autoclean
+	apt-get autoclean; \
+	chown -R rocketchat:rocketchat /app/bundle
 
 USER	rocketchat
 ENV	NODE_ENV=production \
