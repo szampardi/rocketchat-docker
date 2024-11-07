@@ -20,12 +20,14 @@ RUN	export DEBIAN_FRONTEND=noninteractive; \
 WORKDIR	/app/bundle
 USER	rocketchat
 RUN	cd programs/server; \
-	npm install --production; \
+	npm install --production --omit=dev --unsafe-perm; \
 	rm -rf npm/node_modules/sharp; \
 	npm install sharp@0.32.6; \
 	mv node_modules/sharp npm/node_modules/sharp; \
+	cd /app/bundle/programs/server/npm/node_modules/@vector-im/matrix-bot-sdk; \
+	npm install; \
 	rm -rf npm/node_modules/isolated-vm; \
-	npm install isolated-vm@4.4.2; \
+	npm install isolated-vm@4.6.0; \
 	mv node_modules/isolated-vm npm/node_modules/isolated-vm; \
 	cd npm; \
 	npm rebuild bcrypt --build-from-source; \
