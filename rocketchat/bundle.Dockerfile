@@ -13,7 +13,7 @@ RUN     export DEBIAN_FRONTEND=noninteractive; \
 	mkdir -vp /app/bundle /usr/src/rocket.chat; \
 	chown -vR rocketchat:rocketchat /app /usr/src/rocket.chat
 
-ARG	DENO_VERSION=1.37.1
+ARG	DENO_VERSION=2.1.9
 RUN	case $(dpkg --print-architecture) in \
 		amd64) _deno_dl="https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-x86_64-unknown-linux-gnu.zip" ;; \
 		*) _deno_dl="https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-aarch64-unknown-linux-gnu.zip" ;; \
