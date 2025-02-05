@@ -17,7 +17,7 @@ RUN	export DEBIAN_FRONTEND=noninteractive; \
 	mkdir -vp /home/rocketchat /app/{.npm,uploads}; \
 	chown -R rocketchat:rocketchat /home/rocketchat /app/bundle
 
-ARG     DENO_VERSION=2.1.9
+ARG     DENO_VERSION=1.37.1
 RUN     case $(dpkg --print-architecture) in \
                 amd64) _deno_dl="https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-x86_64-unknown-linux-gnu.zip" ;; \
                 *) _deno_dl="https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-aarch64-unknown-linux-gnu.zip" ;; \
@@ -32,17 +32,8 @@ WORKDIR	/app/bundle
 #USER	rocketchat
 RUN	cd programs/server; \
 	npm install --omit=dev --unsafe-perm; \
-	rm -rf npm/node_modules/sharp; \
-	npm install --omit=dev --unsafe-perm sharp@0.32.6; \
-	mv node_modules/sharp npm/node_modules/sharp; \
-	cd /app/bundle/programs/server/npm/node_modules/@vector-im/matrix-bot-sdk; \
+	cd npm/node_modules/isolated-vm; \
 	npm install; \
-	cd /app/bundle/programs/server; \
-	rm -rf npm/node_modules/isolated-vm; \
-	npm install isolated-vm@4.6.0; \
-	mv node_modules/isolated-vm* npm/node_modules/; \
-	cd npm; \
-	npm rebuild bcrypt --build-from-source; \
 	npm cache clear --force
 
 #USER	root
